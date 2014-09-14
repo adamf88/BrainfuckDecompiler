@@ -14,9 +14,10 @@ enum class SyntaxType
 	EPrintValue,
 	EReadValue,
 	ELoopStart,
-	ELoopEnd
+	ELoopEnd,
+	//advanced
+	EAssignValue
 };
-
 
 class SyntaxElem
 {
@@ -40,6 +41,33 @@ protected:
 	}
 };
 
+//advanced
+class AssignValue : public SyntaxElem
+{
+public:
+	AssignValue(int v)
+		: value(v)
+	{}
+
+	void Print(string& result, int& deep) override
+	{
+		PrintBegin(result, deep);
+
+		std::ostringstream os;
+		os << "*p = " << value << ';';
+		result += os.str();
+	}
+
+	SyntaxType Type()
+	{
+		return SyntaxType::EAssignValue;
+	}
+
+public:
+	int value;
+};
+
+//basic
 class ChangeValue : public SyntaxElem
 {
 public:
@@ -340,8 +368,82 @@ public:
 		{
 			changed = false;
 			changed |= ConnectPointerMoves();
+			changed |= ConnectValueMoves();
+			changed |= ConnectAssigment();
+			changed |= FindZeroes();
 		}
 		
+	}
+
+	bool FindZeroes()
+	{
+		bool changed = false;
+		for (auto a = out.begin(); a != out.end(); ++a)
+		{
+			auto b = a;
+			if ((*b)->Type() != SyntaxType::ELoopStart)
+				continue;
+			
+			++b;
+			if (b == out.end() || (*b)->Type() != SyntaxType::EChangeValue)
+				continue;
+			
+			ChangeValue* v = (ChangeValue*)(*b);
+			if (v->value != -1)
+				continue;
+			
+			++b;
+			if (b == out.end() || (*b)->Type() != SyntaxType::ELoopEnd)
+				continue;
+
+			b = a;
+			auto start = a;
+			start++;
+			for (int i = 0; i < 3; ++i)
+			{
+				delete *b;
+				*b = nullptr;
+				++b;
+			}
+
+			b = a;
+			*b = new AssignValue(0);
+			advance(b, 3);
+			out.erase(start, b);
+			changed = true;
+		}
+		return changed;
+	}
+
+	bool ConnectValueMoves()
+	{
+		bool changed = false;
+		for (auto a = out.begin(); a != out.end();)
+		{
+			auto b = a;
+			++b;
+			if (b != out.end() && (*a)->Type() == SyntaxType::EChangeValue && (*b)->Type() == SyntaxType::EChangeValue)
+			{
+				ChangeValue* elema = (ChangeValue*)(*a);
+				ChangeValue* elemb = (ChangeValue*)(*b);
+				elema->value += elemb->value;
+				out.erase(b);
+				delete elemb;
+				if (elema->value == 0) //remove a
+				{
+					b = a;
+					++a;
+					out.erase(b);
+					delete elema;
+				}
+				changed = true;
+			}
+			else
+			{
+				++a;
+			}
+		}
+		return changed;
 	}
 
 	bool ConnectPointerMoves()
@@ -367,20 +469,28 @@ public:
 				}
 				changed = true;
 			}
-			else if (b != out.end() && (*a)->Type() == SyntaxType::EChangeValue && (*b)->Type() == SyntaxType::EChangeValue)
+			else
 			{
-				ChangeValue* elema = (ChangeValue*)(*a);
-				ChangeValue* elemb = (ChangeValue*)(*b);
+				++a;
+			}
+		}
+		return changed;
+	}
+
+	bool ConnectAssigment()
+	{
+		bool changed = false;
+		for (auto a = out.begin(); a != out.end();)
+		{
+			auto b = a;
+			++b;
+			if (b != out.end() && (*a)->Type() == SyntaxType::EAssignValue && (*b)->Type() == SyntaxType::EChangeValue)
+			{
+				MovePointer* elema = (MovePointer*)(*a);
+				MovePointer* elemb = (MovePointer*)(*b);
 				elema->value += elemb->value;
 				out.erase(b);
 				delete elemb;
-				if (elema->value == 0) //remove a
-				{
-					b = a;
-					++a; 
-					out.erase(b);
-					delete elema;
-				}
 				changed = true;
 			}
 			else
@@ -388,7 +498,6 @@ public:
 				++a;
 			}
 		}
-
 		return changed;
 	}
 };
@@ -424,7 +533,7 @@ int main(int argc, char** argv)
 	output += "int main() {\n";
 	output += "\tp = new char[10000];\n";
 	output += d.Print();
-	output += "}";
+	output += "\n}";
 
 	FILE* f2 = fopen(outputFile, "wb");
 	fwrite(output.c_str(), 1, output.size(), f2);
