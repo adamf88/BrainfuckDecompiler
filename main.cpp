@@ -58,11 +58,11 @@ public:
 
 		if (value > 0)
 		{
-			os << "*p += " << value;
+			os << "*p += " << value << ';';
 		}
 		else if (value < 0)
 		{
-			os << "*p -= " << -value;
+			os << "*p -= " << -value << ';';
 		}
 
 		result += os.str();
@@ -95,11 +95,11 @@ public:
 		
 		if (value > 0)
 		{
-			os << "p += " << value;
+			os << "p += " << value << ';';
 		}
 		else if (value < 0)
 		{
-			os << "p -= " << -value;
+			os << "p -= " << -value << ';';
 		}
 
 		result += os.str();
