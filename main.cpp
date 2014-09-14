@@ -493,6 +493,15 @@ public:
 				delete elemb;
 				changed = true;
 			}
+			else if (b != out.end() && (*a)->Type() == SyntaxType::EAssignValue && (*b)->Type() == SyntaxType::EAssignValue)
+			{
+				b = a;
+				++a;
+				MovePointer* elem = (MovePointer*)(*b);
+				out.erase(b);
+				delete elem;
+				changed = true;
+			}
 			else
 			{
 				++a;
